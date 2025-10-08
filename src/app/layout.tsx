@@ -1,10 +1,11 @@
 import type { Metadata } from "next";
-import { Geist, Geist_Mono,Vazirmatn } from "next/font/google";
+import { Geist, Geist_Mono, Vazirmatn } from "next/font/google";
 import "./globals.css";
+import Link from "next/link";
 const vazirmatn = Vazirmatn({
   variable: "--font-vazirmatn",
   subsets: ["latin",],
-  weight: ['100','200','300',"400", "700"],
+  weight: ['100', '200', '300', "400", "700"],
 });
 const geistSans = Geist({
   variable: "--font-geist-sans",
@@ -32,6 +33,12 @@ export default function RootLayout({
         className={`${vazirmatn.variable} ${vazirmatn.variable} antialiased`}
       >
         {children}
+        <hr className="my-8 border-gray-700" />
+        <Link href="/">صفحه اصلی</Link>
+        <footer className="text-center text-gray-500 p-4">
+          ساخته شده با ❤️ توسط{" "}
+          <span>Ali Baghernia</span>
+        </footer>
       </body>
     </html>
   );

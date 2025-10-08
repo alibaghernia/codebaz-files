@@ -133,7 +133,7 @@ function validate(expected: any, actual: any, path = ""): ValidationError[] {
 /* 🔹 کامپوننت اصلی سوال YAML */
 export default function YamlQuestion(): JSX.Element {
   const [value, setValue] = useState<string>(
-    `team_name: "کدموز"\nmembers:\n  - "علی"\n  - "سارا"\n  - "کوروش"`
+    `team_name: "یوهو"\nmembers:\n  - "علی"\n `
   );
   const [syntaxError, setSyntaxError] = useState<string | null>(null);
   const [validationErrors, setValidationErrors] = useState<ValidationError[]>([]);
