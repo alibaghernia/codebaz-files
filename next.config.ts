@@ -6,6 +6,7 @@ const nextConfig: NextConfig = {
   basePath: '/codebaz-files', // اسم ریپوی گیت‌هاب
   images: { unoptimized: true },
   distDir: 'dist',
+  trailingSlash: true,
 };
 
 export default nextConfig;
