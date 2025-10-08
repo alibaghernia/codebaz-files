@@ -20,11 +20,10 @@ interface ValidationError {
 یعنی ساختار صحیحی که کاربر باید شبیه آن بنویسد
 */
 const expected = {
-  "name": "علی",
-  "family": "زارع",
-  "age": 20,
-  "is_student": true,
-  "has_job": null
+  "team_name": "کدموز",
+  "members": [
+    "علی", "سارا", "کوروش"
+  ]
 };
 
 /*
@@ -100,6 +99,54 @@ function validate(expected: any, actual: any, path = ""): ValidationError[] {
     return errors;
   }
 
+  
+  // ---- آرایه ----
+  if (et === "array") {
+    if (at !== "array") {
+      errors.push({
+        path: p,
+        message: `'${p || "فیلد"}' باید یک آرایه باشد، اما نوع ${at} دریافت شد.`,
+      });
+      return errors;
+    }
+
+    const expArr = expected as any[];
+    const actArr = actual as any[];
+
+    // مقایسه‌ی اعضای مشترک (تا حداقل طول)
+    const minLen = Math.min(expArr.length, actArr.length);
+    for (let i = 0; i < minLen; i++) {
+      // مسیر ایندکس مثل members[0]
+      const idxPath = p ? `${p}[${i}]` : `[${i}]`;
+      errors.push(...validate(expArr[i], actArr[i], idxPath));
+    }
+
+    // اگر actual کوتاه‌تر است -> عنصر کم
+    if (actArr.length < expArr.length) {
+      for (let i = actArr.length; i < expArr.length; i++) {
+        const idxPath = p ? `${p}[${i}]` : `[${i}]`;
+        errors.push({
+          path: idxPath,
+          message: `عنصر ${i} در '${p || "array"}' وارد نشده است.`,
+        });
+      }
+    }
+
+    // اگر actual طولانی‌تر است -> عنصر اضافی
+    if (actArr.length > expArr.length) {
+      for (let i = expArr.length; i < actArr.length; i++) {
+        const idxPath = p ? `${p}[${i}]` : `[${i}]`;
+        errors.push({
+          path: idxPath,
+          message: `عنصر اضافی '${i}' در '${p || "array"}' وجود دارد.`,
+        });
+      }
+    }
+
+    return errors;
+  }
+
+
   // 🔹 اگر مقدار درست ولی متفاوت باشد
   if (expected !== actual) {
     errors.push({
@@ -117,13 +164,7 @@ function validate(expected: any, actual: any, path = ""): ValidationError[] {
 export default function JsonQuestion(): JSX.Element {
   // محتوای ادیتور (به صورت string)
   const [value, setValue] = useState<string>(
-    `{
-  "name": "ممد",
-  "family": true,
-  age: null,
-  "is_student": 5,
-  "has_job": false,
-}`
+    `{ }`
   );
 
   // خطای سینتکس JSON (در صورت وجود)
@@ -175,7 +216,7 @@ export default function JsonQuestion(): JSX.Element {
     // اگر هیچ خطایی نبود
     if (errs.length === 0) {
       alert('ایول بریم مرحله بعد')
-      router.push("/json2");
+      router.push("/next");
     }
   };
 
@@ -183,11 +224,18 @@ export default function JsonQuestion(): JSX.Element {
     <div className="p-6 space-y-4 text-white bg-gray-900 min-h-screen">
       <h1 className="text-xl font-bold">❓ سوال</h1>
       <p className="text-gray-300">
-        مشخصات علی را در قالب یک آبجکت JSON بنویسید:
-        <br /> او <b>علی زارع</b> است،
-        <br /> <b>۲۰ سال</b> دارد،
-        <br /> <b>دانشجو</b> است،
-        <br /> و نمی‌دانیم شغل دارد یا نه.
+        <u> <b>علی</b></u>
+        ،
+        <u> <b> سارا </b></u>
+        و
+        <u> <b> کوروش </b></u>
+        <br />
+        میخوان تو یه مسابقه برنامه نویسی شرکت کنن
+        <br />
+        اسم تیمشون را هم گذاشتن
+        <u> <b>کدموز</b></u>
+        <br />
+        بهشون کمک کنید تا مشخصات تیمشون رو به صورت یک آبجکت جیسون درست بنویسن
       </p>
 
       {/* 🔹 ادیتور CodeMirror برای وارد کردن JSON */}

@@ -2,53 +2,35 @@
 
 import { JSX, useState } from "react";
 import CodeMirror from "@uiw/react-codemirror";
-import { json } from "@codemirror/lang-json";
-import { useRouter } from "next/navigation";
+import { yaml as yamlLang } from "@codemirror/lang-yaml";
 import { dracula } from "@uiw/codemirror-theme-dracula";
+import { useRouter } from "next/navigation";
+import YAML from "js-yaml";
 
-/* 
-🔹 نوع خطاهای اعتبارسنجی
-هر خطا شامل مسیر (path) و پیغام خطا (message) است
-*/
+/* 🔹 نوع خطاها برای ولیدیشن */
 interface ValidationError {
   path: string;
   message: string;
 }
 
-/* 
-🔹 JSON مورد انتظار
-یعنی ساختار صحیحی که کاربر باید شبیه آن بنویسد
-*/
+/* 🔹 ساختار داده مورد انتظار */
 const expected = {
-  "name": "علی",
-  "family": "زارع",
-  "age": 20,
-  "is_student": true,
-  "has_job": null
+  team_name: "کدموز",
+  members: ["علی", "سارا", "کوروش"],
 };
 
-/*
-🔹 تابعی برای تشخیص نوع یک مقدار
-در جاوااسکریپت typeof برای null مقدار "object" برمی‌گرداند،
-پس با بررسی جداگانه، مقدار واقعی را تشخیص می‌دهیم.
-*/
+/* 🔹 تابع تشخیص نوع مقدار */
 function getType(v: unknown): string {
   if (v === null) return "null";
   if (Array.isArray(v)) return "array";
   return typeof v;
 }
 
-/*
-🔹 تابع بازگشتی برای اعتبارسنجی JSON وارد شده توسط کاربر
-expected → ساختار مرجع (الگوی درست)
-actual → مقدار واقعی کاربر
-path → مسیر فعلی در شیء (مثلاً "user.name")
-*/
+/* 🔹 تابع بازگشتی برای اعتبارسنجی YAML پارس‌شده */
 function validate(expected: any, actual: any, path = ""): ValidationError[] {
   const errors: ValidationError[] = [];
   const p = path || "";
 
-  // اگر فیلد وجود ندارد
   if (actual === undefined) {
     errors.push({
       path: p,
@@ -60,7 +42,7 @@ function validate(expected: any, actual: any, path = ""): ValidationError[] {
   const et = getType(expected);
   const at = getType(actual);
 
-  // 🔹 اگر انتظار داشتیم یک شیء باشد ولی نیست
+  // --- برای اشیاء ---
   if (et === "object") {
     if (at !== "object") {
       errors.push({
@@ -73,12 +55,10 @@ function validate(expected: any, actual: any, path = ""): ValidationError[] {
     const keysE = Object.keys(expected);
     const keysA = Object.keys(actual);
 
-    // بررسی تمام کلیدهای مورد انتظار
     for (const key of keysE) {
       errors.push(...validate(expected[key], actual[key], p ? `${p}.${key}` : key));
     }
 
-    // پیدا کردن کلیدهای اضافی
     for (const key of keysA) {
       if (!keysE.includes(key)) {
         errors.push({
@@ -87,11 +67,49 @@ function validate(expected: any, actual: any, path = ""): ValidationError[] {
         });
       }
     }
+    return errors;
+  }
+
+  // --- برای آرایه‌ها ---
+  if (et === "array") {
+    if (at !== "array") {
+      errors.push({
+        path: p,
+        message: `'${p || "فیلد"}' باید یک آرایه باشد، اما نوع ${at} دریافت شد.`,
+      });
+      return errors;
+    }
+
+    const expArr = expected as any[];
+    const actArr = actual as any[];
+
+    const minLen = Math.min(expArr.length, actArr.length);
+    for (let i = 0; i < minLen; i++) {
+      errors.push(...validate(expArr[i], actArr[i], p ? `${p}[${i}]` : `[${i}]`));
+    }
+
+    if (actArr.length < expArr.length) {
+      for (let i = actArr.length; i < expArr.length; i++) {
+        errors.push({
+          path: p ? `${p}[${i}]` : `[${i}]`,
+          message: `عنصر ${i} در '${p || "آرایه"}' وارد نشده است.`,
+        });
+      }
+    }
+
+    if (actArr.length > expArr.length) {
+      for (let i = expArr.length; i < actArr.length; i++) {
+        errors.push({
+          path: p ? `${p}[${i}]` : `[${i}]`,
+          message: `عنصر اضافی '${i}' در '${p || "آرایه"}' وجود دارد.`,
+        });
+      }
+    }
 
     return errors;
   }
 
-  // 🔹 اگر نوع‌ها متفاوت باشند
+  // --- برای نوع‌های ساده (primitive) ---
   if (et !== at) {
     errors.push({
       path: p,
@@ -100,82 +118,56 @@ function validate(expected: any, actual: any, path = ""): ValidationError[] {
     return errors;
   }
 
-  // 🔹 اگر مقدار درست ولی متفاوت باشد
   if (expected !== actual) {
     errors.push({
       path: p,
-      message: `مقدار '${p}' نادرست است: انتظار '${String(expected)}' ولی '${String(actual)}' دریافت شد.`,
+      message: `مقدار '${p}' نادرست است: انتظار '${String(
+        expected
+      )}' ولی '${String(actual)}' دریافت شد.`,
     });
   }
 
   return errors;
 }
 
-/*
-🔹 کامپوننت اصلی سوال JSON
-*/
-export default function JsonQuestion(): JSX.Element {
-  // محتوای ادیتور (به صورت string)
+/* 🔹 کامپوننت اصلی سوال YAML */
+export default function YamlQuestion(): JSX.Element {
   const [value, setValue] = useState<string>(
-    `{
-  "name": "ممد",
-  "family": true,
-  age: null,
-  "is_student": 5,
-  "has_job": false,
-}`
+    `team_name: "کدموز"\nmembers:\n  - "علی"\n  - "سارا"\n  - "کوروش"`
   );
-
-  // خطای سینتکس JSON (در صورت وجود)
   const [syntaxError, setSyntaxError] = useState<string | null>(null);
-
-  // لیست خطاهای اعتبارسنجی
   const [validationErrors, setValidationErrors] = useState<ValidationError[]>([]);
-
-  // برای هدایت به صفحه بعد
   const router = useRouter();
 
-  /*
-  🔹 وقتی محتوای ادیتور تغییر می‌کند:
-  - مقدار جدید ذخیره می‌شود
-  - درستی JSON از نظر سینتکس بررسی می‌شود
-  */
+  // 🔹 هندل تغییر محتوا
   const handleChange = (val: string) => {
     setValue(val);
 
     try {
-      JSON.parse(val); // اگر درست بود
+      YAML.load(val);
       setSyntaxError(null);
-      setValidationErrors([]); // خطاها فقط بعد از دکمه "بررسی" نمایش داده می‌شوند
+      setValidationErrors([]);
     } catch (e: any) {
-      // اگر JSON اشتباه بود
       setSyntaxError(e.message);
       setValidationErrors([]);
     }
   };
 
-  /*
-  🔹 وقتی کاربر دکمه "بررسی" را می‌زند:
-  - JSON پارس می‌شود
-  - با expected مقایسه می‌شود
-  - در صورت نبود خطا → مرحله بعد
-  */
+  // 🔹 دکمه بررسی
   const handleValidate = () => {
     let parsed: any;
     try {
-      parsed = JSON.parse(value);
+      parsed = YAML.load(value);
     } catch {
-      setSyntaxError("JSON نادرست است");
+      setSyntaxError("YAML نادرست است");
       return;
     }
 
     const errs = validate(expected, parsed, "");
     setValidationErrors(errs);
 
-    // اگر هیچ خطایی نبود
     if (errs.length === 0) {
-      alert('ایول بریم مرحله بعد')
-      router.push("/json2");
+      router.push("/next");
     }
   };
 
@@ -183,39 +175,39 @@ export default function JsonQuestion(): JSX.Element {
     <div className="p-6 space-y-4 text-white bg-gray-900 min-h-screen">
       <h1 className="text-xl font-bold">❓ سوال</h1>
       <p className="text-gray-300">
-        مشخصات علی را در قالب یک آبجکت JSON بنویسید:
-        <br /> او <b>علی زارع</b> است،
-        <br /> <b>۲۰ سال</b> دارد،
-        <br /> <b>دانشجو</b> است،
-        <br /> و نمی‌دانیم شغل دارد یا نه.
+        اطلاعات تیم را در قالب یک فایل YAML بنویسید:
+        <br /> تیم <b>کدموز</b> شامل اعضای <b>علی، سارا و کوروش</b> است.
       </p>
 
-      {/* 🔹 ادیتور CodeMirror برای وارد کردن JSON */}
+      {/* 🔹 ادیتور برای YAML */}
       <CodeMirror
         dir="ltr"
         value={value}
         height="300px"
-        extensions={[json()]}
+        extensions={[yamlLang()]}
         theme={dracula}
         onChange={handleChange}
       />
 
-      {/* 🔹 نمایش خطای سینتکس (در صورت وجود) */}
+      {/* 🔹 خطای سینتکس */}
       {syntaxError && (
         <div className="text-red-400">⚠️ خطای سینتکس: {syntaxError}</div>
       )}
 
-      {/* 🔹 دکمه بررسی (غیرفعال در صورت خطا) */}
+      {/* 🔹 دکمه بررسی */}
       <button
-        className={`px-4 py-2 rounded ${syntaxError ? "bg-gray-600 cursor-not-allowed" : "bg-blue-600 hover:bg-blue-700"
-          }`}
+        className={`px-4 py-2 rounded ${
+          syntaxError
+            ? "bg-gray-600 cursor-not-allowed"
+            : "bg-blue-600 hover:bg-blue-700"
+        }`}
         disabled={!!syntaxError}
         onClick={handleValidate}
       >
         بررسی
       </button>
 
-      {/* 🔹 نمایش خطاهای اعتبارسنجی */}
+      {/* 🔹 نمایش خطاهای ولیدیشن */}
       {validationErrors.length > 0 && (
         <div className="mt-4">
           <h2 className="font-semibold text-red-400">اشکالات پیدا شده:</h2>
