@@ -175,7 +175,7 @@ export default function JsonQuestion(): JSX.Element {
     // اگر هیچ خطایی نبود
     if (errs.length === 0) {
       alert('ایول بریم مرحله بعد')
-      router.push("/json2");
+      router.push("/json/2");
     }
   };
 
